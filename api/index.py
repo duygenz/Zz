@@ -1,7 +1,10 @@
+# Nhập thêm thư viện CORS
 from flask import Flask, jsonify
+from flask_cors import CORS # <-- DÒNG MỚI
 import feedparser
 
 app = Flask(__name__)
+CORS(app) # <-- DÒNG MỚI: Kích hoạt CORS cho toàn bộ ứng dụng
 
 # URL của RSS feed từ Báo Đầu Tư
 RSS_URL = "https://baodautu.vn/tai-chinh-chung-khoan.rss"
@@ -10,10 +13,7 @@ RSS_URL = "https://baodautu.vn/tai-chinh-chung-khoan.rss"
 @app.route('/<path:path>')
 def get_news(path):
     try:
-        # Phân tích cú pháp RSS feed từ URL
         feed = feedparser.parse(RSS_URL)
-
-        # Trích xuất thông tin cần thiết từ mỗi bài viết
         news_items = []
         for entry in feed.entries:
             news_items.append({
@@ -22,16 +22,19 @@ def get_news(path):
                 'summary': entry.summary,
                 'published': entry.published
             })
-
-        # Trả về dữ liệu dưới dạng JSON
-        return jsonify({
+        
+        # Tạo một response và thêm header cho phép cache
+        response = jsonify({
             'source': feed.feed.title,
             'articles': news_items
         })
+        # Header này giúp Vercel cache lại kết quả trong 10 phút
+        # giảm thời gian tải cho những lần gọi sau
+        response.headers['Cache-Control'] = 's-maxage=600, stale-while-revalidate'
+        
+        return response # <-- THAY ĐỔI NHỎ: Trả về response đã tạo
 
     except Exception as e:
-        # Xử lý nếu có lỗi xảy ra
         return jsonify({'error': str(e)}), 500
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# Không cần dòng if __name__ == '__main__' khi triển khai trên Vercel
